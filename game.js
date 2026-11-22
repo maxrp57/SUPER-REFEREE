@@ -43,7 +43,7 @@
     puck: { x: 700, y: 360, vx: 0, vy: 0, carrier: null, lastTouch: null, fromX: 700, fromY: 360, shot: false },
     refs: [],
     userRef: null,
-    camera: { x: 700, y: 360 },
+    camera: { x: 700, y: 360, yaw: Math.PI / 2 },
     cameraView: "chase",
     score: [0, 0],
     period: 1,
@@ -104,6 +104,10 @@
   }
 
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+  const approachAngle = (current, target, maxStep) => {
+    const difference = Math.atan2(Math.sin(target - current), Math.cos(target - current));
+    return current + clamp(difference, -maxStep, maxStep);
+  };
   const random = (min, max) => min + Math.random() * (max - min);
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const attackDir = team => (team === 0) === state.attackToRight ? 1 : -1;
@@ -140,6 +144,7 @@
     state.facingX = attackDir(0);
     state.facingZ = 0;
     state.userRef.yaw = Math.atan2(state.facingX, state.facingZ);
+    state.camera.yaw = state.userRef.yaw;
     state.camera.x = state.userRef.x;
     state.camera.y = state.userRef.y;
     state.puck = { x: 700, y: 360, vx: 0, vy: 0, carrier: null, lastTouch: null, fromX: 700, fromY: 360, shot: false };
@@ -506,7 +511,7 @@
       state.userRef.vy = dy * state.userRef.speed;
       state.facingX = dx;
       state.facingZ = dy;
-      state.userRef.yaw = Math.atan2(dx, dy);
+      state.userRef.yaw = approachAngle(state.userRef.yaw, Math.atan2(dx, dy), dt * 4.5);
       state.userRef.x = clamp(state.userRef.x + state.userRef.vx * dt, RINK.left + 24, RINK.right - 24);
       state.userRef.y = clamp(state.userRef.y + state.userRef.vy * dt, RINK.top + 24, RINK.bottom - 24);
     } else {
@@ -514,6 +519,7 @@
     }
     state.camera.x += (state.userRef.x - state.camera.x) * Math.min(1, dt * 4);
     state.camera.y += (state.userRef.y - state.camera.y) * Math.min(1, dt * 4);
+    state.camera.yaw = approachAngle(state.camera.yaw, state.userRef.yaw, dt * 1.35);
     updateScoreboard();
   }
 
@@ -827,7 +833,7 @@
         target = [0, 0, 0];
         up = [0, 0, -1];
       } else {
-        const fx = state.facingX, fz = state.facingZ;
+        const fx = Math.sin(state.camera.yaw), fz = Math.cos(state.camera.yaw);
         eye = [user[0] - fx * 6.4, 3.2, user[2] - fz * 6.4];
         target = [user[0] + fx * 3.6, .75, user[2] + fz * 3.6];
       }

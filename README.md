@@ -1,11 +1,11 @@
 # SUPER REFEREE
 
-Jeu de hockey sur glace en **3D WebGL** jouable dans un navigateur. La caméra suit l'arbitre depuis la troisième personne; un bouton permet aussi de passer en vue aérienne. Les personnages sont des modèles low-poly originaux inspirés des références visuelles fournies : arbitre en maillot rayé et joueurs équipés de casques, protections, patins et crosses. Aucun paquet ni compilation n'est nécessaire : ouvre `index.html` ou lance un serveur statique dans ce dossier (`python3 -m http.server 8000`).
+Jeu de hockey sur glace en **3D WebGL** jouable dans un navigateur. La caméra suit l'arbitre depuis la troisième personne avec une rotation progressive; un bouton permet aussi de passer en vue aérienne. Les personnages sont des modèles low-poly originaux inspirés des références visuelles fournies : arbitre en maillot rayé et joueurs équipés de casques, protections, patins et crosses. Aucun paquet ni compilation n'est nécessaire : ouvre `index.html` ou lance un serveur statique dans ce dossier (`python3 -m http.server 8000`).
 
 ## Jouer
 
 - Déplace ton arbitre avec **WASD** ou les **flèches**. Sur mobile, utilise le joystick affiché dans la patinoire.
-- La caméra poursuit ton arbitre en troisième personne; utilise **Vue aérienne** pour observer toute la patinoire.
+- La caméra poursuit ton arbitre et tourne progressivement en troisième personne; utilise **Vue aérienne** pour observer toute la patinoire.
 - Observe la patinoire et prends une décision avec les boutons du panneau ou les touches **1 à 5**.
 - **Espace** siffle la décision correspondant à l'incident en cours ; sans incident, le jeu continue. **Échap** met le match en pause.
 - Utilise **Commandes** pour reconfigurer les touches, **Pause** pour interrompre le match et le sélecteur de maillot pour personnaliser ton arbitre.
