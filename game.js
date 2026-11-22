@@ -29,6 +29,8 @@
     uniform: document.querySelector("#uniform-color"),
     settings: document.querySelector("#settings-dialog"),
     periodDialog: document.querySelector("#period-dialog"),
+    whistleDialog: document.querySelector("#whistle-dialog"),
+    whistleContext: document.querySelector("#whistle-context"),
     resultTitle: document.querySelector("#result-title"),
     resultEyebrow: document.querySelector("#result-eyebrow"),
     resultCopy: document.querySelector("#result-copy"),
@@ -420,6 +422,7 @@
     const pending = state.pending;
     const decision = actions[action];
     if (!decision) return;
+    if (ui.whistleDialog?.open) ui.whistleDialog.close();
     if (!pending && action === "play-on") {
       toast("Pas d'infraction, le jeu continue.");
       return;
@@ -511,7 +514,7 @@
       state.userRef.vy = dy * state.userRef.speed;
       state.facingX = dx;
       state.facingZ = dy;
-      state.userRef.yaw = approachAngle(state.userRef.yaw, Math.atan2(dx, dy), dt * 4.5);
+      state.userRef.yaw = approachAngle(state.userRef.yaw, Math.atan2(dx, dy), dt * 2.2);
       state.userRef.x = clamp(state.userRef.x + state.userRef.vx * dt, RINK.left + 24, RINK.right - 24);
       state.userRef.y = clamp(state.userRef.y + state.userRef.vy * dt, RINK.top + 24, RINK.bottom - 24);
     } else {
@@ -519,7 +522,7 @@
     }
     state.camera.x += (state.userRef.x - state.camera.x) * Math.min(1, dt * 4);
     state.camera.y += (state.userRef.y - state.camera.y) * Math.min(1, dt * 4);
-    state.camera.yaw = approachAngle(state.camera.yaw, state.userRef.yaw, dt * 1.35);
+    state.camera.yaw = approachAngle(state.camera.yaw, state.userRef.yaw, dt * 0.75);
     updateScoreboard();
   }
 
@@ -772,6 +775,9 @@
       localBox(player, 0, 1.12, -.005, .67, .18, .37, jersey);
       localBox(player, -.36, 1.07, .015, .18, .45, .29, referee ? black : jersey);
       localBox(player, .36, 1.07, .015, .18, .45, .29, referee ? black : jersey);
+      localBox(player, 0, 1.13, .205, .24, .055, .018, referee ? [0.16, 0.19, 0.21] : [0.95, 0.96, 0.91]);
+      localBox(player, -.31, 1.03, .19, .11, .26, .018, referee ? [0.9, 0.82, 0.25] : [0.96, 0.96, 0.92]);
+      localBox(player, .31, 1.03, .19, .11, .26, .018, referee ? [0.9, 0.82, 0.25] : [0.96, 0.96, 0.92]);
       if (referee) {
         [-.2, -.065, .065, .2].forEach(x => {
           localBox(player, x, .88, .156, .063, .5, .022, black);
@@ -800,6 +806,8 @@
       localBox(player, 0, 1.25, .005, .22, .12, .2, skin);
       localSphere(player, 0, 1.48, .035, .245, .27, .22, skin);
       localSphere(player, 0, 1.62, -.01, .29, .2, .29, black);
+      localBox(player, 0, 1.70, -.01, .34, .035, .31, black);
+      localBox(player, 0, 1.58, -.28, .30, .045, .055, [0.04, 0.055, 0.07]);
       localBox(player, 0, 1.51, .245, .43, .055, .035, [0.57, 0.76, 0.79]);
       localSphere(player, -.075, 1.51, .238, .026, .035, .025, [0.1, 0.12, 0.13]);
       localSphere(player, .075, 1.51, .238, .026, .035, .025, [0.1, 0.12, 0.13]);
@@ -1025,6 +1033,13 @@
 
   function isEditable(target) { return ["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName); }
   function codeToKey(event) { return event.key === " " ? " " : event.key.toLowerCase(); }
+  function openWhistle() {
+    if (ui.whistleDialog.open) return;
+    ui.whistleContext.textContent = state.pending
+      ? `${state.pending.title} — choisis la règle que tu appliques.`
+      : "Justifie ton sifflet : indique si une infraction est observée.";
+    ui.whistleDialog.showModal();
+  }
 
   window.addEventListener("keydown", event => {
     const key = codeToKey(event);
@@ -1041,9 +1056,18 @@
       return;
     }
     if (isEditable(event.target)) return;
+    if (ui.whistleDialog.open) {
+      if (!event.repeat && ["1","2","3","4","5","0"].includes(key)) {
+        const map = { "1":"offside", "2":"icing", "3":"penalty", "4":"goal", "5":"no-goal", "0":"play-on" };
+        makeCall(map[key]);
+      }
+      if (key === "escape") ui.whistleDialog.close();
+      event.preventDefault();
+      return;
+    }
     state.pressed.add(key);
     if (Object.keys(state.bindings).some(action => action !== "whistle" && state.bindings[action] === key) || key === "arrowup" || key === "arrowdown" || key === "arrowleft" || key === "arrowright") event.preventDefault();
-    if (key === state.bindings.whistle && !event.repeat) makeCall(state.pending ? ({ offside: "offside", icing: "icing", penalty: "penalty", goal: "goal", save: "no-goal" }[state.pending.type]) : "play-on");
+    if (key === state.bindings.whistle && !event.repeat) openWhistle();
     if (!event.repeat && ["1","2","3","4","5","0"].includes(key)) {
       const map = { "1":"offside", "2":"icing", "3":"penalty", "4":"goal", "5":"no-goal", "0":"play-on" };
       makeCall(map[key]);
@@ -1063,7 +1087,7 @@
   document.querySelector("#uniform-color").addEventListener("change", event => { state.uniform = event.target.value; save(); });
   document.querySelector("#reset-bindings").addEventListener("click", () => { state.bindings = { ...defaults }; state.listeningFor = null; save(); renderBindings(); });
   document.querySelector("#mobile-help").addEventListener("click", () => toast("Déplace-toi avec le joystick dans la patinoire."));
-  document.querySelector("#touch-whistle").addEventListener("click", () => makeCall(state.pending ? ({ offside: "offside", icing: "icing", penalty: "penalty", goal: "goal", save: "no-goal" }[state.pending.type]) : "play-on"));
+  document.querySelector("#touch-whistle").addEventListener("click", openWhistle);
   document.querySelectorAll("[data-bind]").forEach(button => button.addEventListener("click", () => {
     state.listeningFor = button.dataset.bind;
     renderBindings();

@@ -131,6 +131,24 @@
       </form>
     </dialog>
 
+    <dialog id="whistle-dialog" class="settings-dialog whistle-dialog">
+      <form method="dialog">
+        <div class="dialog-heading">
+          <div><span class="eyebrow">COUP DE SIFFLET</span><h2>Quelle est ta décision ?</h2></div>
+          <button class="close-button" value="cancel" aria-label="Annuler">×</button>
+        </div>
+        <p id="whistle-context">Justifie ton sifflet pour valider ou annuler cette action.</p>
+        <div class="whistle-grid decision-grid">
+          <button class="decision-button" data-call="offside" value="default" type="button"><span class="decision-icon blue">⇥</span><span><b>Hors-jeu</b><small>Un attaquant franchit la ligne bleue</small></span><kbd>1</kbd></button>
+          <button class="decision-button" data-call="icing" value="default" type="button"><span class="decision-icon amber">➤</span><span><b>Dégagement interdit</b><small>Palet envoyé depuis sa moitié</small></span><kbd>2</kbd></button>
+          <button class="decision-button" data-call="penalty" value="default" type="button"><span class="decision-icon red">✦</span><span><b>Faute / pénalité</b><small>Charge ou obstruction irrégulière</small></span><kbd>3</kbd></button>
+          <button class="decision-button" data-call="goal" value="default" type="button"><span class="decision-icon green">✓</span><span><b>Valider le but</b><small>Le palet franchit la ligne</small></span><kbd>4</kbd></button>
+          <button class="decision-button decision-secondary" data-call="no-goal" value="default" type="button"><span class="decision-icon muted">×</span><span><b>Refuser le but</b><small>Le palet reste hors du filet</small></span><kbd>5</kbd></button>
+          <button class="decision-button decision-secondary" data-call="play-on" value="default" type="button"><span class="decision-icon muted">▶</span><span><b>Laisser jouer</b><small>Aucune infraction</small></span><kbd>0</kbd></button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="period-dialog" class="settings-dialog result-dialog">
       <form method="dialog">
         <span class="eyebrow" id="result-eyebrow">FIN DE PÉRIODE</span>
