@@ -4,7 +4,7 @@ Jeu de hockey sur glace en **3D WebGL** jouable dans un navigateur. La caméra s
 
 ## Jouer
 
-- Déplace ton arbitre avec **WASD** ou les **flèches**. Sur mobile, utilise le joystick affiché dans la patinoire.
+- Déplace ton arbitre avec **WASD** ou les **flèches haut/bas**. Utilise les **flèches gauche/droite** pour tourner lentement.
 - La caméra poursuit ton arbitre et tourne progressivement en troisième personne; utilise **Vue aérienne** pour observer toute la patinoire.
 - Observe la patinoire et prends une décision avec les boutons du panneau ou les touches **1 à 5**.
 - **Espace** siffle la décision correspondant à l'incident en cours ; sans incident, le jeu continue. **Échap** met le match en pause.
