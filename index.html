@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#07131c">
+    <meta name="description" content="Super Referee, un jeu de hockey sur glace où tu diriges l'arbitrage.">
+    <title>SUPER REFEREE — Le jeu d'arbitrage</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Super Referee, accueil">
+          <span class="brand-mark">SR</span>
+          <span><strong>SUPER REFEREE</strong><small>LE JEU D'ARBITRAGE</small></span>
+        </a>
+        <div class="top-actions">
+          <div class="career-chip" aria-label="Progression de carrière">
+            <span class="career-star">★</span>
+            <span><b id="career-level">Niveau 1</b><small id="career-xp">0 XP</small></span>
+          </div>
+          <button class="quiet-button" id="settings-open" type="button" aria-label="Paramètres des commandes">⚙ <span>Commandes</span></button>
+        </div>
+      </header>
+
+      <section class="game-layout" aria-label="Match de hockey">
+        <div class="rink-column">
+          <div class="scoreboard">
+            <div class="team-score home-score">
+              <span class="team-dot home-dot"></span>
+              <div><small>DOMICILE</small><strong id="home-score">0</strong></div>
+            </div>
+            <div class="clock-panel">
+              <span class="period-label" id="period-label">1re PÉRIODE</span>
+              <strong id="game-clock">20:00</strong>
+              <span class="clock-state" id="clock-state">COUP D'ENVOI</span>
+            </div>
+            <div class="team-score away-score">
+              <div><small>VISITEURS</small><strong id="away-score">0</strong></div>
+              <span class="team-dot away-dot"></span>
+            </div>
+          </div>
+
+          <div class="rink-frame" id="rink-frame">
+            <canvas id="rink" aria-label="Match de hockey en 3D vu derrière l'arbitre"></canvas>
+            <div class="live-pill"><i></i><span id="live-label">MATCH EN DIRECT</span></div>
+            <button class="camera-toggle" id="camera-toggle" type="button" aria-label="Changer le point de vue">
+              <span>◉</span><span id="camera-mode">VUE 3E PERSONNE</span>
+            </button>
+            <div class="incident-card" id="incident-card" hidden role="status" aria-live="assertive">
+              <span class="incident-icon" id="incident-icon">!</span>
+              <div><strong id="incident-title">DÉCISION À PRENDRE</strong><p id="incident-copy"></p></div>
+              <span class="incident-count" id="incident-count">5</span>
+            </div>
+            <div class="toast" id="toast" aria-live="polite"></div>
+            <div class="touch-controls" aria-label="Commandes tactiles">
+              <div class="joystick" id="joystick" aria-label="Joystick de déplacement">
+                <span class="joystick-ring"></span><span class="joystick-knob" id="joystick-knob"></span>
+              </div>
+              <button class="touch-whistle" id="touch-whistle" type="button" aria-label="Siffler">Sifflet</button>
+            </div>
+            <div class="rink-legend"><span><i class="legend-player"></i>Toi</span><span><i class="legend-ref"></i>Arbitre IA</span></div>
+          </div>
+
+          <div class="controls-hint">
+            <span><kbd data-keyhint="up">W</kbd><kbd data-keyhint="left">A</kbd><kbd data-keyhint="down">S</kbd><kbd data-keyhint="right">D</kbd> ou flèches <em>Se déplacer</em></span>
+            <span><kbd data-keyhint="whistle">Espace</kbd> <em>Siffler / continuer</em></span>
+            <button type="button" class="link-button" id="mobile-help">Contrôles tactiles</button>
+          </div>
+        </div>
+
+        <aside class="decision-panel" aria-label="Panneau d'arbitrage">
+          <div class="panel-heading">
+            <div><span class="eyebrow">TON MATCH</span><h1>À toi de siffler.</h1></div>
+            <span class="live-dot" title="Match actif"></span>
+          </div>
+          <p class="panel-intro">Suis l'action en 3e personne, repère l'infraction et prends la bonne décision. L'arbitre en chef, c'est toi.</p>
+
+          <div class="callout" id="callout">
+            <span class="callout-icon">↗</span>
+            <p><strong>Le match commence !</strong><br>Reste près du jeu et surveille les lignes bleues.</p>
+          </div>
+
+          <div class="decision-heading"><span>COUPS DE SIFFLET</span><span class="whistle-key">ESPACE = LAISSER JOUER</span></div>
+          <div class="decision-grid">
+            <button class="decision-button" data-call="offside" type="button"><span class="decision-icon blue">⇥</span><span><b>Hors-jeu</b><small>Un attaquant entre avant le palet</small></span><kbd>1</kbd></button>
+            <button class="decision-button" data-call="icing" type="button"><span class="decision-icon amber">➤</span><span><b>Dégagement interdit</b><small>Palet dégagé depuis sa moitié</small></span><kbd>2</kbd></button>
+            <button class="decision-button" data-call="penalty" type="button"><span class="decision-icon red">✦</span><span><b>Faute / pénalité</b><small>Charge ou obstruction irrégulière</small></span><kbd>3</kbd></button>
+            <button class="decision-button" data-call="goal" type="button"><span class="decision-icon green">✓</span><span><b>Valider le but</b><small>Le palet a franchi la ligne</small></span><kbd>4</kbd></button>
+            <button class="decision-button decision-secondary" data-call="no-goal" type="button"><span class="decision-icon muted">×</span><span><b>Refuser le but</b><small>Le gardien a gardé le palet dehors</small></span><kbd>5</kbd></button>
+            <button class="decision-button decision-secondary" data-call="play-on" type="button"><span class="decision-icon muted">▶</span><span><b>Laisser jouer</b><small>Pas d'infraction à signaler</small></span><kbd>0</kbd></button>
+          </div>
+
+          <div class="rules-note">
+            <strong><span>i</span> Hors-jeu ≠ dégagement interdit</strong>
+            <p><b>Hors-jeu :</b> l'attaquant franchit la ligne bleue avant le palet.<br><b>Dégagement interdit :</b> le palet est tiré de sa moitié jusqu'au-delà de la ligne de but adverse sans être touché.</p>
+          </div>
+
+          <div class="panel-bottom">
+            <div class="accuracy"><div><span>TES DÉCISIONS</span><b id="accuracy-value">—</b></div><div class="accuracy-track"><i id="accuracy-bar"></i></div></div>
+            <button class="pause-button" id="pause-button" type="button"><span>Ⅱ</span> Pause</button>
+          </div>
+        </aside>
+      </section>
+
+      <section class="footer-strip" aria-label="Infos match">
+        <div class="referee-info"><span class="ref-avatar">R</span><span><b>ARBITRE PRINCIPAL</b><small>Tu es le n° 1 · <span id="ref-position">Zone neutre</span></small></span></div>
+        <div class="referee-info assistant-info"><span class="assistant-avatar">A</span><span><b>ARBITRE ASSISTANT</b><small>IA · Suit le jeu et les lignes</small></span></div>
+        <div class="career-progress"><span>PROGRESSION DE CARRIÈRE</span><div class="progress-track"><i id="xp-progress"></i></div><small id="next-level">Encore 100 XP pour le niveau suivant</small></div>
+        <label class="uniform-control">MAILLOT
+          <select id="uniform-color" aria-label="Couleur du maillot">
+            <option value="#f4f4f0">Blanc</option><option value="#ffd25e">Or</option><option value="#ff7a66">Corail</option><option value="#71c7ff">Bleu glacier</option>
+          </select>
+        </label>
+      </section>
+    </main>
+
+    <dialog id="settings-dialog" class="settings-dialog">
+      <form method="dialog">
+        <div class="dialog-heading"><div><span class="eyebrow">PERSONNALISATION</span><h2>Commandes clavier</h2></div><button class="close-button" aria-label="Fermer">×</button></div>
+        <p>Choisis une action puis appuie sur la touche à lui attribuer. Les changements sont enregistrés sur cet appareil.</p>
+        <div class="key-bindings">
+          <button type="button" data-bind="up">Avancer <kbd>W</kbd></button>
+          <button type="button" data-bind="down">Reculer <kbd>S</kbd></button>
+          <button type="button" data-bind="left">Aller à gauche <kbd>A</kbd></button>
+          <button type="button" data-bind="right">Aller à droite <kbd>D</kbd></button>
+          <button type="button" data-bind="whistle">Siffler <kbd>Espace</kbd></button>
+        </div>
+        <button class="reset-button" id="reset-bindings" type="button">Rétablir les touches par défaut</button>
+      </form>
+    </dialog>
+
+    <dialog id="period-dialog" class="settings-dialog result-dialog">
+      <form method="dialog">
+        <span class="eyebrow" id="result-eyebrow">FIN DE PÉRIODE</span>
+        <h2 id="result-title">Belle période !</h2>
+        <p id="result-copy"></p>
+        <div class="result-stats" id="result-stats"></div>
+        <button class="primary-button" id="period-continue" type="button">Période suivante <span>→</span></button>
+      </form>
+    </dialog>
+    <script src="game.js"></script>
+  </body>
+</html>
