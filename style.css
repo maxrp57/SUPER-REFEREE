@@ -202,3 +202,51 @@ kbd { display: inline-grid; min-width: 18px; height: 19px; padding: 0 4px; place
   .uniform-control { margin-left: auto; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+
+/* Mode match plein écran */
+body { overflow: hidden; }
+.app { width: 100%; height: 100dvh; max-width: none; padding: 0; }
+.topbar, .footer-strip, .controls-hint, .decision-panel,
+.rink-legend, .camera-toggle, .scoreboard { display: none !important; }
+.game-layout { display: block; width: 100%; height: 100%; }
+.rink-column { width: 100%; height: 100%; }
+.rink-frame { width: 100%; height: 100%; min-height: 0; aspect-ratio: auto; border: 0; border-radius: 0; }
+.touch-controls {
+  position: absolute;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  left: auto;
+  display: flex;
+  z-index: 40;
+  pointer-events: none;
+}
+.touch-controls .joystick { display: none; }
+.touch-whistle {
+  width: 92px;
+  height: 92px;
+  border: 3px solid #ecf5f2;
+  border-radius: 50%;
+  background: #e84f5f;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  box-shadow: 0 10px 34px #5a1119a8, inset 0 0 0 5px #ff7b87;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+.touch-whistle:active { transform: scale(.94); }
+.incident-card { top: 26px; }
+.whistle-dialog { width: min(560px, calc(100vw - 28px)); }
+.whistle-dialog h2 { font-size: 25px; }
+.whistle-grid { grid-template-columns: 1fr 1fr; }
+.whistle-grid .decision-button { min-height: 64px; }
+.whistle-grid .decision-button b { font-size: 11px; }
+.whistle-grid .decision-button small { font-size: 8px; }
+
+@media (max-width: 460px) {
+  .touch-whistle { width: 78px; height: 78px; font-size: 12px; }
+  .whistle-grid { grid-template-columns: 1fr; }
+  .whistle-grid .decision-button { min-height: 54px; }
+}
