@@ -607,26 +607,57 @@
         vec3 position = aPosition;
         vec3 animatedNormal = aNormal;
         float side = sign(aPosition.x);
-        float sideWeight = smoothstep(0.035, 0.12, abs(aPosition.x));
-        float legWeight = (1.0 - smoothstep(0.54, 0.79, aPosition.y)) * sideWeight * uSkating;
-        float legAngle = sin(uSkatePhase + side * 3.14159265) * 0.34 * legWeight;
-        float legY = position.y - 0.63;
-        float legZ = position.z;
-        position.y = 0.63 + legY * cos(legAngle) - legZ * sin(legAngle);
-        position.z = legY * sin(legAngle) + legZ * cos(legAngle);
-        float armWeight = smoothstep(0.72, 0.93, aPosition.y) * (1.0 - smoothstep(1.34, 1.52, aPosition.y)) * smoothstep(0.20, 0.31, abs(aPosition.x)) * uSkating;
-        float armAngle = sin(uSkatePhase + side * 3.14159265 + 3.14159265) * 0.2;
+        float sideWeight = smoothstep(0.045, 0.15, abs(aPosition.x));
+        float legWeight = (1.0 - smoothstep(0.58, 0.72, aPosition.y)) * sideWeight * uSkating;
+        float stridePhase = uSkatePhase + side * 3.14159265;
+        float push = pow(max(sin(stridePhase), 0.0), 1.8);
+        float recovery = pow(max(-sin(stridePhase), 0.0), 1.35);
+        float hipAngle = push * 0.38 - recovery * 0.14;
+        float hipY = position.y - 0.62;
+        float hipZ = position.z;
+        vec3 hipPose = vec3(position.x, 0.62 + hipY * cos(hipAngle) - hipZ * sin(hipAngle), hipY * sin(hipAngle) + hipZ * cos(hipAngle));
+        hipPose.x += side * (push * 0.13 - recovery * 0.035);
+        position = mix(position, hipPose, legWeight);
+
+        float shinWeight = (1.0 - smoothstep(0.30, 0.41, aPosition.y)) * sideWeight * uSkating;
+        float kneeAngle = uSkating * 0.14 - recovery * 0.78 + push * 0.08;
+        float kneeY = position.y - 0.34;
+        float kneeZ = position.z;
+        vec3 kneePose = vec3(position.x, 0.34 + kneeY * cos(kneeAngle) - kneeZ * sin(kneeAngle), kneeY * sin(kneeAngle) + kneeZ * cos(kneeAngle));
+        position = mix(position, kneePose, shinWeight);
+
+        float footWeight = (1.0 - smoothstep(0.105, 0.18, aPosition.y)) * sideWeight * uSkating;
+        float ankleAngle = -kneeAngle * 0.45 - hipAngle * 0.18;
+        float ankleY = position.y - 0.13;
+        float ankleZ = position.z;
+        vec3 skatePose = vec3(position.x, 0.13 + ankleY * cos(ankleAngle) - ankleZ * sin(ankleAngle), ankleY * sin(ankleAngle) + ankleZ * cos(ankleAngle));
+        position = mix(position, skatePose, footWeight);
+        position.x += side * (push * 0.19 - recovery * 0.04) * footWeight;
+        position.z -= push * 0.1 * footWeight;
+        position.y += recovery * 0.055 * footWeight;
+
+        float torsoWeight = smoothstep(0.63, 0.84, aPosition.y) * (1.0 - smoothstep(1.48, 1.68, aPosition.y)) * (1.0 - smoothstep(0.2, 0.34, abs(aPosition.x))) * uSkating;
+        float leanAngle = 0.12 * uSkating;
+        float torsoY = position.y - 0.72;
+        float torsoZ = position.z;
+        vec3 leanedPose = vec3(position.x, 0.72 + torsoY * cos(leanAngle) - torsoZ * sin(leanAngle), torsoY * sin(leanAngle) + torsoZ * cos(leanAngle));
+        position = mix(position, leanedPose, torsoWeight);
+        float bodyWeight = smoothstep(0.62, 0.82, aPosition.y);
+        position.x += sin(uSkatePhase) * 0.026 * uSkating * bodyWeight;
+        position.y -= (0.028 + 0.018 * max(sin(uSkatePhase), 0.0)) * uSkating * bodyWeight;
+
+        float armWeight = smoothstep(0.72, 0.94, aPosition.y) * (1.0 - smoothstep(1.34, 1.53, aPosition.y)) * smoothstep(0.2, 0.31, abs(aPosition.x)) * uSkating;
+        float armAngle = sin(stridePhase + 3.14159265) * 0.13;
         float armY = position.y - 1.16;
         float armZ = position.z;
-        position.y = mix(position.y, 1.16 + armY * cos(armAngle) - armZ * sin(armAngle), armWeight);
-        position.z = mix(position.z, armY * sin(armAngle) + armZ * cos(armAngle), armWeight);
-        float normalLegY = animatedNormal.y * cos(legAngle) - animatedNormal.z * sin(legAngle);
-        animatedNormal.z = animatedNormal.y * sin(legAngle) + animatedNormal.z * cos(legAngle);
-        animatedNormal.y = normalLegY;
-        float normalArmY = animatedNormal.y * cos(armAngle) - animatedNormal.z * sin(armAngle);
-        animatedNormal.z = mix(animatedNormal.z, animatedNormal.y * sin(armAngle) + animatedNormal.z * cos(armAngle), armWeight);
-        animatedNormal.y = mix(animatedNormal.y, normalArmY, armWeight);
-        position.y += sin(uSkatePhase * 2.0) * 0.018 * uSkating;
+        vec3 armPose = vec3(position.x, 1.16 + armY * cos(armAngle) - armZ * sin(armAngle), armY * sin(armAngle) + armZ * cos(armAngle));
+        position = mix(position, armPose, armWeight);
+        position.y += sin(uSkatePhase * 2.0) * 0.008 * uSkating * bodyWeight;
+
+        float normalAngle = hipAngle * legWeight + kneeAngle * shinWeight + ankleAngle * footWeight + leanAngle * torsoWeight + armAngle * armWeight;
+        float normalY = animatedNormal.y * cos(normalAngle) - animatedNormal.z * sin(normalAngle);
+        animatedNormal.z = animatedNormal.y * sin(normalAngle) + animatedNormal.z * cos(normalAngle);
+        animatedNormal.y = normalY;
         vec3 normal = normalize(mat3(uModel) * animatedNormal);
         vUV = aUV;
         vLight = 0.4 + 0.6 * max(dot(normal, normalize(vec3(-0.45, 0.82, 0.36))), 0.0);
@@ -942,6 +973,7 @@
     }
 
     function drawRefereeModel(entity, time, assistant = false) {
+      if (window.skinnedReferees?.ready) return true;
       if (!meshes.referee) return false;
       const p = world(entity.x, entity.y, 0);
       const color = assistant ? [1, 1, 1] : hexColor(state.uniform);
@@ -949,7 +981,7 @@
       const skating = Math.min(1, speed / 70);
       const direction = (entity.vx || 0) * Math.sin(entity.yaw || 0) + (entity.vy || 0) * Math.cos(entity.yaw || 0);
       context.uniform1f(loc.skating, skating);
-      context.uniform1f(loc.skatePhase, time * 8 * (direction < 0 ? -1 : 1));
+      context.uniform1f(loc.skatePhase, time * 7.5 * (direction < 0 ? -1 : 1));
       draw(meshes.referee, p[0], p[1], p[2], 1, 1, 1, color, entity.yaw || 0);
       return true;
     }
@@ -977,6 +1009,12 @@
 
       drawRink();
       const seconds = time / 1000;
+      if (window.skinnedReferees) {
+        window.skinnedReferees.sync({ eye, target, up }, {
+          userRef: state.userRef,
+          assistantRef: state.refs[1],
+        });
+      }
       state.players.forEach(player => drawHockeyPlayer(player, seconds));
       if (!drawRefereeModel(state.refs[1], seconds, true)) drawHockeyPlayer(state.refs[1], seconds, true, true);
       if (!drawRefereeModel(state.userRef, seconds)) drawHockeyPlayer(state.userRef, seconds, true, false);
