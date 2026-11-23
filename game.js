@@ -519,9 +519,11 @@
       const dx = moveX / Math.max(1, length), dy = moveY / Math.max(1, length);
       state.userRef.vx = dx * state.userRef.speed;
       state.userRef.vy = dy * state.userRef.speed;
-      state.facingX = dx;
-      state.facingZ = dy;
-      state.userRef.yaw = approachAngle(state.userRef.yaw, Math.atan2(dx, dy), dt * 2.2);
+      if (forward >= 0) {
+        state.facingX = dx;
+        state.facingZ = dy;
+        state.userRef.yaw = approachAngle(state.userRef.yaw, Math.atan2(dx, dy), dt * 2.2);
+      }
       state.userRef.x = clamp(state.userRef.x + state.userRef.vx * dt, RINK.left + 24, RINK.right - 24);
       state.userRef.y = clamp(state.userRef.y + state.userRef.vy * dt, RINK.top + 24, RINK.bottom - 24);
     } else {
@@ -597,13 +599,38 @@
       attribute vec2 aUV;
       uniform mat4 uViewProjection;
       uniform mat4 uModel;
+      uniform float uSkating;
+      uniform float uSkatePhase;
       varying vec2 vUV;
       varying float vLight;
       void main() {
-        vec3 normal = normalize(mat3(uModel) * aNormal);
+        vec3 position = aPosition;
+        vec3 animatedNormal = aNormal;
+        float side = sign(aPosition.x);
+        float sideWeight = smoothstep(0.035, 0.12, abs(aPosition.x));
+        float legWeight = (1.0 - smoothstep(0.54, 0.79, aPosition.y)) * sideWeight * uSkating;
+        float legAngle = sin(uSkatePhase + side * 3.14159265) * 0.34 * legWeight;
+        float legY = position.y - 0.63;
+        float legZ = position.z;
+        position.y = 0.63 + legY * cos(legAngle) - legZ * sin(legAngle);
+        position.z = legY * sin(legAngle) + legZ * cos(legAngle);
+        float armWeight = smoothstep(0.72, 0.93, aPosition.y) * (1.0 - smoothstep(1.34, 1.52, aPosition.y)) * smoothstep(0.20, 0.31, abs(aPosition.x)) * uSkating;
+        float armAngle = sin(uSkatePhase + side * 3.14159265 + 3.14159265) * 0.2;
+        float armY = position.y - 1.16;
+        float armZ = position.z;
+        position.y = mix(position.y, 1.16 + armY * cos(armAngle) - armZ * sin(armAngle), armWeight);
+        position.z = mix(position.z, armY * sin(armAngle) + armZ * cos(armAngle), armWeight);
+        float normalLegY = animatedNormal.y * cos(legAngle) - animatedNormal.z * sin(legAngle);
+        animatedNormal.z = animatedNormal.y * sin(legAngle) + animatedNormal.z * cos(legAngle);
+        animatedNormal.y = normalLegY;
+        float normalArmY = animatedNormal.y * cos(armAngle) - animatedNormal.z * sin(armAngle);
+        animatedNormal.z = mix(animatedNormal.z, animatedNormal.y * sin(armAngle) + animatedNormal.z * cos(armAngle), armWeight);
+        animatedNormal.y = mix(animatedNormal.y, normalArmY, armWeight);
+        position.y += sin(uSkatePhase * 2.0) * 0.018 * uSkating;
+        vec3 normal = normalize(mat3(uModel) * animatedNormal);
         vUV = aUV;
         vLight = 0.4 + 0.6 * max(dot(normal, normalize(vec3(-0.45, 0.82, 0.36))), 0.0);
-        gl_Position = uViewProjection * uModel * vec4(aPosition, 1.0);
+        gl_Position = uViewProjection * uModel * vec4(position, 1.0);
       }
     `;
     const fragmentSource = `
@@ -628,6 +655,8 @@
       color: context.getUniformLocation(program, "uColor"),
       diffuseTexture: context.getUniformLocation(program, "uDiffuseTexture"),
       useTexture: context.getUniformLocation(program, "uUseTexture"),
+      skating: context.getUniformLocation(program, "uSkating"),
+      skatePhase: context.getUniformLocation(program, "uSkatePhase"),
     };
     const meshes = {
       box: uploadGeometry(context, makeBox()),
@@ -912,10 +941,15 @@
       cylinder(p[0], p[1], p[2], .16, .12, [0.08, 0.095, 0.1]);
     }
 
-    function drawRefereeModel(entity, assistant = false) {
+    function drawRefereeModel(entity, time, assistant = false) {
       if (!meshes.referee) return false;
       const p = world(entity.x, entity.y, 0);
       const color = assistant ? [1, 1, 1] : hexColor(state.uniform);
+      const speed = Math.hypot(entity.vx || 0, entity.vy || 0);
+      const skating = Math.min(1, speed / 70);
+      const direction = (entity.vx || 0) * Math.sin(entity.yaw || 0) + (entity.vy || 0) * Math.cos(entity.yaw || 0);
+      context.uniform1f(loc.skating, skating);
+      context.uniform1f(loc.skatePhase, time * 8 * (direction < 0 ? -1 : 1));
       draw(meshes.referee, p[0], p[1], p[2], 1, 1, 1, color, entity.yaw || 0);
       return true;
     }
@@ -944,8 +978,9 @@
       drawRink();
       const seconds = time / 1000;
       state.players.forEach(player => drawHockeyPlayer(player, seconds));
-      if (!drawRefereeModel(state.refs[1], true)) drawHockeyPlayer(state.refs[1], seconds, true, true);
-      if (!drawRefereeModel(state.userRef, false)) drawHockeyPlayer(state.userRef, seconds, true, false);
+      if (!drawRefereeModel(state.refs[1], seconds, true)) drawHockeyPlayer(state.refs[1], seconds, true, true);
+      if (!drawRefereeModel(state.userRef, seconds)) drawHockeyPlayer(state.userRef, seconds, true, false);
+      context.uniform1f(loc.skating, 0);
       drawPuck();
     }
 
