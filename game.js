@@ -502,8 +502,14 @@
     }
     if (state.remaining <= 0) { state.remaining = 0; endPeriod(); return; }
     playerAI(dt, now);
-    const side = Number(state.pressed.has(state.bindings.right) || state.pressed.has("arrowright")) - Number(state.pressed.has(state.bindings.left) || state.pressed.has("arrowleft")) + state.touch.x;
+    const side = Number(state.pressed.has(state.bindings.right)) - Number(state.pressed.has(state.bindings.left)) + state.touch.x;
     const forward = Number(state.pressed.has(state.bindings.up) || state.pressed.has("arrowup")) - Number(state.pressed.has(state.bindings.down) || state.pressed.has("arrowdown")) - state.touch.y;
+    const turn = Number(state.pressed.has("arrowright")) - Number(state.pressed.has("arrowleft"));
+    if (turn !== 0) {
+      state.userRef.yaw = state.userRef.yaw + turn * dt * .85;
+      state.facingX = Math.sin(state.userRef.yaw);
+      state.facingZ = Math.cos(state.userRef.yaw);
+    }
     const forwardX = state.facingX, forwardZ = state.facingZ;
     const moveX = forwardX * forward + forwardZ * side;
     const moveY = forwardZ * forward - forwardX * side;
@@ -615,6 +621,7 @@
       sphere: uploadGeometry(context, makeSphere()),
       cylinder: uploadGeometry(context, makeCylinder(false)),
       ring: uploadGeometry(context, makeRing()),
+      referee: null,
     };
     const viewProjection = new Float32Array(16);
     context.enable(context.DEPTH_TEST);
@@ -622,6 +629,44 @@
     context.disable(context.CULL_FACE);
 
     function resize(width, height) { context.viewport(0, 0, width, height); }
+
+    async function loadRefereeModel(url) {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const text = await response.text();
+        const positions = [];
+        const normals = [];
+        const vertexNormals = [];
+        const indices = [];
+        text.split(/\r?\n/).forEach(line => {
+          const parts = line.trim().split(/\s+/);
+          if (parts[0] === "v") positions.push([Number(parts[1]), Number(parts[2]), Number(parts[3])]);
+          if (parts[0] === "vn") normals.push([Number(parts[1]), Number(parts[2]), Number(parts[3])]);
+        });
+        text.split(/\r?\n/).forEach(line => {
+          const parts = line.trim().split(/\s+/);
+          if (parts[0] !== "f") return;
+          const face = parts.slice(1).map(token => token.split("/").map(Number));
+          for (let i = 1; i < face.length - 1; i++) {
+            [face[0], face[i], face[i + 1]].forEach(([vertexIndex, , normalIndex]) => {
+              const position = positions[vertexIndex - 1];
+              const normal = normals[(normalIndex || 1) - 1] || [0, 1, 0];
+              indices.push(vertexIndex - 1);
+              vertexNormals[vertexIndex - 1] = normal;
+            });
+          }
+        });
+        const vertices = [];
+        positions.forEach((position, index) => {
+          const normal = vertexNormals[index] || [0, 1, 0];
+          vertices.push(position[0], position[1], position[2], ...normal);
+        });
+        meshes.referee = uploadGeometry(context, { vertices, indices });
+      } catch (error) {
+        console.warn("Le modèle 3D de l'arbitre n'a pas pu être chargé.", error);
+      }
+    }
 
     function modelMatrix(x, y, z, sx, sy, sz, yaw = 0) {
       const c = Math.cos(yaw), s = Math.sin(yaw);
@@ -829,6 +874,14 @@
       cylinder(p[0], p[1], p[2], .16, .12, [0.08, 0.095, 0.1]);
     }
 
+    function drawRefereeModel(entity, assistant = false) {
+      if (!meshes.referee) return false;
+      const p = world(entity.x, entity.y, 0);
+      const color = assistant ? [0.76, 0.96, 0.42] : hexColor(state.uniform);
+      draw(meshes.referee, p[0], p[1], p[2], 1, 1, 1, color, entity.yaw || 0);
+      return true;
+    }
+
     function render(time) {
       if (!context.canvas.width || !context.canvas.height) return;
       context.clearColor(0.035, 0.09, 0.13, 1);
@@ -853,12 +906,12 @@
       drawRink();
       const seconds = time / 1000;
       state.players.forEach(player => drawHockeyPlayer(player, seconds));
-      drawHockeyPlayer(state.refs[1], seconds, true, true);
-      drawHockeyPlayer(state.userRef, seconds, true, false);
+      if (!drawRefereeModel(state.refs[1], true)) drawHockeyPlayer(state.refs[1], seconds, true, true);
+      if (!drawRefereeModel(state.userRef, false)) drawHockeyPlayer(state.userRef, seconds, true, false);
       drawPuck();
     }
 
-    return { resize, render };
+    return { resize, render, loadRefereeModel };
   }
 
   function linkProgram(context, vertexSource, fragmentSource) {
@@ -1138,5 +1191,6 @@
   renderBindings();
   resize();
   updateScoreboard();
+  if (renderer) renderer.loadRefereeModel("assets/referee-model/base.obj");
   requestAnimationFrame(loop);
 })();
