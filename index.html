@@ -44,6 +44,7 @@
 
           <div class="rink-frame" id="rink-frame">
             <canvas id="rink" aria-label="Match de hockey en 3D vu derrière l'arbitre"></canvas>
+            <canvas id="skinned-referees" aria-label="Arbitres avec animation de patinage"></canvas>
             <div class="live-pill"><i></i><span id="live-label">MATCH EN DIRECT</span></div>
             <button class="camera-toggle" id="camera-toggle" type="button" aria-label="Changer le point de vue">
               <span>◉</span><span id="camera-mode">VUE 3E PERSONNE</span>
@@ -158,6 +159,7 @@
         <button class="primary-button" id="period-continue" type="button">Période suivante <span>→</span></button>
       </form>
     </dialog>
+    <script type="module" src="skinned-referees.js"></script>
     <script src="game.js"></script>
   </body>
 </html>
