@@ -594,11 +594,14 @@
     const vertexSource = `
       attribute vec3 aPosition;
       attribute vec3 aNormal;
+      attribute vec2 aUV;
       uniform mat4 uViewProjection;
       uniform mat4 uModel;
+      varying vec2 vUV;
       varying float vLight;
       void main() {
         vec3 normal = normalize(mat3(uModel) * aNormal);
+        vUV = aUV;
         vLight = 0.4 + 0.6 * max(dot(normal, normalize(vec3(-0.45, 0.82, 0.36))), 0.0);
         gl_Position = uViewProjection * uModel * vec4(aPosition, 1.0);
       }
@@ -606,16 +609,25 @@
     const fragmentSource = `
       precision mediump float;
       uniform vec3 uColor;
+      uniform sampler2D uDiffuseTexture;
+      uniform bool uUseTexture;
+      varying vec2 vUV;
       varying float vLight;
-      void main() { gl_FragColor = vec4(uColor * vLight, 1.0); }
+      void main() {
+        vec3 baseColor = uUseTexture ? texture2D(uDiffuseTexture, vUV).rgb * uColor : uColor;
+        gl_FragColor = vec4(baseColor * vLight, 1.0);
+      }
     `;
     const program = linkProgram(context, vertexSource, fragmentSource);
     const loc = {
       position: context.getAttribLocation(program, "aPosition"),
       normal: context.getAttribLocation(program, "aNormal"),
+      uv: context.getAttribLocation(program, "aUV"),
       viewProjection: context.getUniformLocation(program, "uViewProjection"),
       model: context.getUniformLocation(program, "uModel"),
       color: context.getUniformLocation(program, "uColor"),
+      diffuseTexture: context.getUniformLocation(program, "uDiffuseTexture"),
+      useTexture: context.getUniformLocation(program, "uUseTexture"),
     };
     const meshes = {
       box: uploadGeometry(context, makeBox()),
@@ -631,39 +643,48 @@
 
     function resize(width, height) { context.viewport(0, 0, width, height); }
 
-    async function loadRefereeModel(url) {
+    async function loadRefereeModel(url, textureUrl) {
       try {
         const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const text = await response.text();
         const positions = [];
+        const texcoords = [];
         const normals = [];
-        const vertexNormals = [];
-        const indices = [];
         text.split(/\r?\n/).forEach(line => {
           const parts = line.trim().split(/\s+/);
           if (parts[0] === "v") positions.push([Number(parts[1]), Number(parts[2]), Number(parts[3])]);
+          if (parts[0] === "vt") texcoords.push([Number(parts[1]), Number(parts[2])]);
           if (parts[0] === "vn") normals.push([Number(parts[1]), Number(parts[2]), Number(parts[3])]);
         });
+        const vertices = [];
         text.split(/\r?\n/).forEach(line => {
           const parts = line.trim().split(/\s+/);
           if (parts[0] !== "f") return;
           const face = parts.slice(1).map(token => token.split("/").map(Number));
           for (let i = 1; i < face.length - 1; i++) {
-            [face[0], face[i], face[i + 1]].forEach(([vertexIndex, , normalIndex]) => {
-              const position = positions[vertexIndex - 1];
-              const normal = normals[(normalIndex || 1) - 1] || [0, 1, 0];
-              indices.push(vertexIndex - 1);
-              vertexNormals[vertexIndex - 1] = normal;
+            [face[0], face[i], face[i + 1]].forEach(([vertexIndex, texcoordIndex, normalIndex]) => {
+              const position = positions[vertexIndex > 0 ? vertexIndex - 1 : positions.length + vertexIndex];
+              const texcoord = texcoords[texcoordIndex > 0 ? texcoordIndex - 1 : texcoords.length + texcoordIndex] || [0, 0];
+              const normal = normals[normalIndex > 0 ? normalIndex - 1 : normals.length + normalIndex] || [0, 1, 0];
+              vertices.push(...position, ...normal, ...texcoord);
             });
           }
         });
-        const vertices = [];
-        positions.forEach((position, index) => {
-          const normal = vertexNormals[index] || [0, 1, 0];
-          vertices.push(position[0], position[1], position[2], ...normal);
+        const image = new Image();
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = () => reject(new Error(`Impossible de charger la texture ${textureUrl}`));
+          image.src = textureUrl;
         });
-        meshes.referee = uploadGeometry(context, { vertices, indices });
+        const texture = context.createTexture();
+        context.bindTexture(context.TEXTURE_2D, texture);
+        context.pixelStorei(context.UNPACK_FLIP_Y_WEBGL, true);
+        context.texImage2D(context.TEXTURE_2D, 0, context.RGBA, context.RGBA, context.UNSIGNED_BYTE, image);
+        context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MIN_FILTER, context.LINEAR_MIPMAP_LINEAR);
+        context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MAG_FILTER, context.LINEAR);
+        context.generateMipmap(context.TEXTURE_2D);
+        meshes.referee = uploadGeometry(context, { vertices, stride: 32, texture });
       } catch (error) {
         console.warn("Le modèle 3D de l'arbitre n'a pas pu être chargé.", error);
       }
@@ -683,13 +704,29 @@
       const model = customMatrix || modelMatrix(x, y, z, sx, sy, sz, yaw);
       context.bindBuffer(context.ARRAY_BUFFER, mesh.vertices);
       context.enableVertexAttribArray(loc.position);
-      context.vertexAttribPointer(loc.position, 3, context.FLOAT, false, 24, 0);
+      context.vertexAttribPointer(loc.position, 3, context.FLOAT, false, mesh.stride || 24, 0);
       context.enableVertexAttribArray(loc.normal);
-      context.vertexAttribPointer(loc.normal, 3, context.FLOAT, false, 24, 12);
-      context.bindBuffer(context.ELEMENT_ARRAY_BUFFER, mesh.indices);
+      context.vertexAttribPointer(loc.normal, 3, context.FLOAT, false, mesh.stride || 24, 12);
+      if (mesh.texture) {
+        context.enableVertexAttribArray(loc.uv);
+        context.vertexAttribPointer(loc.uv, 2, context.FLOAT, false, mesh.stride, 24);
+        context.activeTexture(context.TEXTURE0);
+        context.bindTexture(context.TEXTURE_2D, mesh.texture);
+        context.uniform1i(loc.diffuseTexture, 0);
+        context.uniform1i(loc.useTexture, 1);
+      } else {
+        context.disableVertexAttribArray(loc.uv);
+        context.vertexAttrib2f(loc.uv, 0, 0);
+        context.uniform1i(loc.useTexture, 0);
+      }
       context.uniformMatrix4fv(loc.model, false, model);
       context.uniform3fv(loc.color, color);
-      context.drawElements(context.TRIANGLES, mesh.count, context.UNSIGNED_SHORT, 0);
+      if (mesh.indices) {
+        context.bindBuffer(context.ELEMENT_ARRAY_BUFFER, mesh.indices);
+        context.drawElements(context.TRIANGLES, mesh.count, context.UNSIGNED_SHORT, 0);
+      } else {
+        context.drawArrays(context.TRIANGLES, 0, mesh.count);
+      }
     }
 
     function box(x, y, z, sx, sy, sz, color, yaw = 0) {
@@ -878,7 +915,7 @@
     function drawRefereeModel(entity, assistant = false) {
       if (!meshes.referee) return false;
       const p = world(entity.x, entity.y, 0);
-      const color = assistant ? [0.76, 0.96, 0.42] : hexColor(state.uniform);
+      const color = assistant ? [1, 1, 1] : hexColor(state.uniform);
       draw(meshes.referee, p[0], p[1], p[2], 1, 1, 1, color, entity.yaw || 0);
       return true;
     }
@@ -943,10 +980,18 @@
     const vertices = context.createBuffer();
     context.bindBuffer(context.ARRAY_BUFFER, vertices);
     context.bufferData(context.ARRAY_BUFFER, new Float32Array(data.vertices), context.STATIC_DRAW);
-    const indices = context.createBuffer();
-    context.bindBuffer(context.ELEMENT_ARRAY_BUFFER, indices);
-    context.bufferData(context.ELEMENT_ARRAY_BUFFER, new Uint16Array(data.indices), context.STATIC_DRAW);
-    return { vertices, indices, count: data.indices.length };
+    const indices = data.indices && context.createBuffer();
+    if (indices) {
+      context.bindBuffer(context.ELEMENT_ARRAY_BUFFER, indices);
+      context.bufferData(context.ELEMENT_ARRAY_BUFFER, new Uint16Array(data.indices), context.STATIC_DRAW);
+    }
+    return {
+      vertices,
+      indices,
+      count: data.indices ? data.indices.length : data.vertices.length / ((data.stride || 24) / 4),
+      stride: data.stride || 24,
+      texture: data.texture || null,
+    };
   }
 
   function makeBox() {
@@ -1195,6 +1240,6 @@
   renderBindings();
   resize();
   updateScoreboard();
-  if (renderer) renderer.loadRefereeModel("assets/referee-model/base.obj");
+  if (renderer) renderer.loadRefereeModel("assets/referee-model/base.obj", "assets/referee-model/texture_diffuse.png");
   requestAnimationFrame(loop);
 })();
