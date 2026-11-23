@@ -110,6 +110,11 @@
     const difference = Math.atan2(Math.sin(target - current), Math.cos(target - current));
     return current + clamp(difference, -maxStep, maxStep);
   };
+  function turnUserRef(amount) {
+    state.userRef.yaw += amount;
+    state.facingX = Math.sin(state.userRef.yaw);
+    state.facingZ = Math.cos(state.userRef.yaw);
+  }
   const random = (min, max) => min + Math.random() * (max - min);
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   const attackDir = team => (team === 0) === state.attackToRight ? 1 : -1;
@@ -505,11 +510,7 @@
     const side = Number(state.pressed.has(state.bindings.right)) - Number(state.pressed.has(state.bindings.left)) + state.touch.x;
     const forward = Number(state.pressed.has(state.bindings.up) || state.pressed.has("arrowup")) - Number(state.pressed.has(state.bindings.down) || state.pressed.has("arrowdown")) - state.touch.y;
     const turn = Number(state.pressed.has("arrowright")) - Number(state.pressed.has("arrowleft"));
-    if (turn !== 0) {
-      state.userRef.yaw = state.userRef.yaw + turn * dt * .85;
-      state.facingX = Math.sin(state.userRef.yaw);
-      state.facingZ = Math.cos(state.userRef.yaw);
-    }
+    if (turn !== 0) turnUserRef(turn * dt * 2.8);
     const forwardX = state.facingX, forwardZ = state.facingZ;
     const moveX = forwardX * forward + forwardZ * side;
     const moveY = forwardZ * forward - forwardX * side;
@@ -528,7 +529,7 @@
     }
     state.camera.x += (state.userRef.x - state.camera.x) * Math.min(1, dt * 4);
     state.camera.y += (state.userRef.y - state.camera.y) * Math.min(1, dt * 4);
-    state.camera.yaw = approachAngle(state.camera.yaw, state.userRef.yaw, dt * 0.75);
+    state.camera.yaw = approachAngle(state.camera.yaw, state.userRef.yaw, dt * 5);
     updateScoreboard();
   }
 
@@ -1119,6 +1120,9 @@
       return;
     }
     state.pressed.add(key);
+    if (!event.repeat && (key === "arrowleft" || key === "arrowright") && state.running && !state.pending && !state.gameOver) {
+      turnUserRef((key === "arrowright" ? 1 : -1) * Math.PI / 8);
+    }
     if (Object.keys(state.bindings).some(action => action !== "whistle" && state.bindings[action] === key) || key === "arrowup" || key === "arrowdown" || key === "arrowleft" || key === "arrowright") event.preventDefault();
     if (key === state.bindings.whistle && !event.repeat) openWhistle();
     if (!event.repeat && ["1","2","3","4","5","0"].includes(key)) {
